@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"syscall"
 
 	"github.com/heroku/docker-registry-client/registry"
@@ -140,40 +141,48 @@ func repoDataPrintReport(repoData *RepoData) {
 	}
 }
 
+func PrintUsage() {
+	fmt.Fprintf(os.Stderr, "Usage: %s registry_url [repo ...]\n", os.Args[0])
+	flag.PrintDefaults()
+}
+
 func main() {
+	flag.Usage = PrintUsage
 	flag.Parse()
 
 	if *versionFlag {
 		fmt.Println("Version:", APP_VERSION)
+		return
 	}
 
-	url := flag.Arg(0)
+	if flag.NArg() > 0 {
+		url := flag.Arg(0)
+		fmt.Println("Registry: ", url)
 
-	fmt.Println("Registry: ", url)
-
-	var usePassword string
-	if *askPassword {
-		fmt.Print("Password: ")
-		bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err == nil {
-			fmt.Println("\nPassword read")
+		var usePassword string
+		if *askPassword {
+			fmt.Print("Password: ")
+			bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+			if err == nil {
+				fmt.Println("\nPassword read")
+			}
+			usePassword = string(bytePassword)
+		} else {
+			usePassword = *password
 		}
-		usePassword = string(bytePassword)
+		hub, _ := registry.New(url, *username, usePassword)
+
+		var repositories []string
+		if flag.NArg() > 1 {
+			repositories = flag.Args()[1:]
+		} else {
+			repositories, _ = hub.Repositories()
+		}
+
+		fmt.Println("Found  repositories ", repositories)
+		repoData := readRepoData(hub, repositories)
+		repoDataPrintReport(repoData)
 	} else {
-		usePassword = *password
+		PrintUsage()
 	}
-	hub, _ := registry.New(url, *username, usePassword)
-
-	var repositories []string
-	if flag.NArg() > 1 {
-		repositories = flag.Args()[1:]
-	} else {
-		repositories, _ = hub.Repositories()
-	}
-
-	fmt.Println("Found  repositories ", repositories)
-
-	repoData := readRepoData(hub, repositories)
-
-	repoDataPrintReport(repoData)
 }
