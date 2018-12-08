@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-const APP_VERSION = "0.1"
+const APP_VERSION = "0.1alpha"
 
 type LayerData struct {
 	used_by_tags   map[*TagData]bool
@@ -92,6 +92,10 @@ func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
 	return repoData
 }
 
+func SizeInMB(size int64) int64 {
+	return size / (1024 * 1024)
+}
+
 func repoDataPrintReport(repoData *RepoData) {
 	for imageData, _ := range repoData.images {
 		var nImageSharedSize int64
@@ -117,7 +121,7 @@ func repoDataPrintReport(repoData *RepoData) {
 				}
 			}
 		}
-		fmt.Printf("Image %s: total %d B (%d layers), shared %d B (%d layers), exclusive %d B (%d layers)\n", imageData.name, nImageSize, nImageLayers, nImageSharedSize, nImageSharedLayers, nImageExclusiveSize, nImageExclusiveLayers)
+		fmt.Printf("Image %s: total %d MB (%d layers), shared %d MB (%d layers), exclusive %d MB (%d layers)\n", imageData.name, SizeInMB(nImageSize), nImageLayers, SizeInMB(nImageSharedSize), nImageSharedLayers, SizeInMB(nImageExclusiveSize), nImageExclusiveLayers)
 		for tagData, _ := range imageData.tags {
 			var nSharedSize int64
 			var nExclusiveSize int64
@@ -136,7 +140,7 @@ func repoDataPrintReport(repoData *RepoData) {
 					nExclusiveSize += layerData.size
 				}
 			}
-			fmt.Printf("  Tag %s: total %d B (%d layers), shared %d B (%d layers), exclusive %d B (%d layers)\n", tagData.name, nSize, nLayers, nSharedSize, nSharedLayers, nExclusiveSize, nExclusiveLayers)
+			fmt.Printf("  Tag %s: total %d MB (%d layers), shared %d MB (%d layers), exclusive %d MB (%d layers)\n", tagData.name, SizeInMB(nSize), nLayers, SizeInMB(nSharedSize), nSharedLayers, SizeInMB(nExclusiveSize), nExclusiveLayers)
 		}
 	}
 }
@@ -176,6 +180,7 @@ func main() {
 		if flag.NArg() > 1 {
 			repositories = flag.Args()[1:]
 		} else {
+			fmt.Println("Obtaining the list of all available repositories ")
 			repositories, _ = hub.Repositories()
 		}
 
