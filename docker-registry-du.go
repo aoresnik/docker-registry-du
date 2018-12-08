@@ -92,7 +92,7 @@ func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
 	return repoData
 }
 
-func SizeInMB(size int64) int64 {
+func SizeInMiB(size int64) int64 {
 	return size / (1024 * 1024)
 }
 
@@ -121,7 +121,7 @@ func repoDataPrintReport(repoData *RepoData) {
 				}
 			}
 		}
-		fmt.Printf("Image %s: total %d MB (%d layers), shared %d MB (%d layers), exclusive %d MB (%d layers)\n", imageData.name, SizeInMB(nImageSize), nImageLayers, SizeInMB(nImageSharedSize), nImageSharedLayers, SizeInMB(nImageExclusiveSize), nImageExclusiveLayers)
+		fmt.Printf("Image %s: total %d MiB (%d layers), shared %d MiB (%d layers), exclusive %d MiB (%d layers)\n", imageData.name, SizeInMiB(nImageSize), nImageLayers, SizeInMiB(nImageSharedSize), nImageSharedLayers, SizeInMiB(nImageExclusiveSize), nImageExclusiveLayers)
 		for tagData, _ := range imageData.tags {
 			var nSharedSize int64
 			var nExclusiveSize int64
@@ -140,7 +140,7 @@ func repoDataPrintReport(repoData *RepoData) {
 					nExclusiveSize += layerData.size
 				}
 			}
-			fmt.Printf("  Tag %s: total %d MB (%d layers), shared %d MB (%d layers), exclusive %d MB (%d layers)\n", tagData.name, SizeInMB(nSize), nLayers, SizeInMB(nSharedSize), nSharedLayers, SizeInMB(nExclusiveSize), nExclusiveLayers)
+			fmt.Printf("  Tag %s: total %d MiB (%d layers), shared %d MiB (%d layers), exclusive %d MiB (%d layers)\n", tagData.name, SizeInMiB(nSize), nLayers, SizeInMiB(nSharedSize), nSharedLayers, SizeInMiB(nExclusiveSize), nExclusiveLayers)
 		}
 	}
 }
