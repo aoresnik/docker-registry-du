@@ -1,6 +1,8 @@
 # docker-registry-du
 Report storage usage of a Docker Registry. Reports usage by image and tag, shared and exclusive usage.
 
+WARNING: This software is in prototype phase - do not use on production repositories.
+
 ## Installing
 
 1. You need a working Go installation
@@ -9,7 +11,7 @@ Report storage usage of a Docker Registry. Reports usage by image and tag, share
 go get github.com/heroku/docker-registry-client/registry
 go get golang.org/x/crypto/ssh/terminal
 ```
-3. Install docker-registry-du:
+3. Install *docker-registry-du*:
 ```
 go get github.com/aoresnik/docker-registry-du
 ```
