@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"syscall"
 
@@ -62,14 +63,23 @@ func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
 
 		fmt.Println("Reading data for image: " + repo)
 
-		tags, _ := hub.Tags(repo)
+		tags, err := hub.Tags(repo)
+		// FIXME: could probably continue with some errors here (but should include that in the report)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		for _, tag := range tags {
 			tagData := new(TagData)
 			tagData.name = tag
 			tagData.layers = make(map[*LayerData]bool)
 			imageData.tags[tagData] = true
 
-			manifest, _ := hub.ManifestV2(repo, tag)
+			manifest, err := hub.ManifestV2(repo, tag)
+			// FIXME: could probably continue with some errors here (but should include that in the report)
+			if err != nil {
+				log.Fatal(err)
+			}
 
 			for _, m := range manifest.Manifest.Layers {
 				layerData, present := layersByDigest[m.Digest.Encoded()]
@@ -174,14 +184,20 @@ func main() {
 		} else {
 			usePassword = *password
 		}
-		hub, _ := registry.New(url, *username, usePassword)
+		hub, err := registry.New(url, *username, usePassword)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		var repositories []string
 		if flag.NArg() > 1 {
 			repositories = flag.Args()[1:]
 		} else {
 			fmt.Println("Obtaining the list of all available repositories ")
-			repositories, _ = hub.Repositories()
+			repositories, err = hub.Repositories()
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		fmt.Println("Found  repositories ", repositories)
