@@ -7,7 +7,6 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/heroku/docker-registry-client/registry"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
