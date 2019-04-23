@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-
+	"github.com/nokia/docker-registry-client/registry"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -65,7 +65,7 @@ func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
 		tags, err := hub.Tags(repo)
 		// FIXME: could probably continue with some errors here (but should include that in the report)
 		if err != nil {
-			log.Fatal(err)
+			log.Print(err)
 		}
 
 		for _, tag := range tags {
@@ -171,6 +171,7 @@ func main() {
 	if flag.NArg() > 0 {
 		url := flag.Arg(0)
 		fmt.Println("Registry: ", url)
+		fmt.Println("Username: ", *username)
 
 		var usePassword string
 		if *askPassword {
