@@ -63,39 +63,41 @@ func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
 		fmt.Println("Reading data for image: " + repo)
 
 		tags, err := hub.Tags(repo)
-		// FIXME: could probably continue with some errors here (but should include that in the report)
-		if err != nil {
-			log.Print(err)
-		}
+		if err == nil {
+			for _, tag := range tags {
+				tagData := new(TagData)
+				tagData.name = tag
+				tagData.layers = make(map[*LayerData]bool)
+				imageData.tags[tagData] = true
 
-		for _, tag := range tags {
-			tagData := new(TagData)
-			tagData.name = tag
-			tagData.layers = make(map[*LayerData]bool)
-			imageData.tags[tagData] = true
+				manifest, err := hub.ManifestV2(repo, tag)
+				if err == nil {
+					for _, m := range manifest.Manifest.Layers {
+						layerData, present := layersByDigest[m.Digest.Encoded()]
+						if !present {
+							layerData = new(LayerData)
+							layerData.size = m.Size
+							layerData.used_by_tags = make(map[*TagData]bool)
+							layerData.used_by_images = make(map[*ImageData]bool)
 
-			manifest, err := hub.ManifestV2(repo, tag)
-			// FIXME: could probably continue with some errors here (but should include that in the report)
-			if err != nil {
-				log.Fatal(err)
-			}
+							layersByDigest[m.Digest.Encoded()] = layerData
+						}
 
-			for _, m := range manifest.Manifest.Layers {
-				layerData, present := layersByDigest[m.Digest.Encoded()]
-				if !present {
-					layerData = new(LayerData)
-					layerData.size = m.Size
-					layerData.used_by_tags = make(map[*TagData]bool)
-					layerData.used_by_images = make(map[*ImageData]bool)
-
-					layersByDigest[m.Digest.Encoded()] = layerData
+						layerData.used_by_tags[tagData] = true
+						layerData.used_by_images[imageData] = true
+						tagData.layers[layerData] = true
+						tagData.size += layerData.size
+					}
+				} else {
+					log.Print(err)
+					// FIXME: errors should be included in the report
+					log.Print("Skipping the tag " + tagData.name + " because of error")
 				}
-
-				layerData.used_by_tags[tagData] = true
-				layerData.used_by_images[imageData] = true
-				tagData.layers[layerData] = true
-				tagData.size += layerData.size
 			}
+		} else {
+			log.Print(err)
+			// FIXME: errors should be included in the report
+			log.Print("Skipping the repo " + repo + " because of error")
 		}
 	}
 	return repoData
