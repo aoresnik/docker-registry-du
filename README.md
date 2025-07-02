@@ -6,12 +6,13 @@ WARNING: This software is in prototype phase - do not use on production reposito
 ## Installing
 
 1. You need a working Go installation
-1. Install dedpendencies
-```
-go get github.com/heroku/docker-registry-client/registry
-go get golang.org/x/crypto/ssh/terminal
-```
-3. Install *docker-registry-du*:
-```
-go get github.com/aoresnik/docker-registry-du
-```
+1. Checkout project
+1. Run build
+    ```
+    go build
+    ```
+1. Run the code
+    ```
+    ./docker-registry-du -username user -password password https://your-registry.example.com
+    ```
+    
