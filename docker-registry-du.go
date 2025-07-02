@@ -1,14 +1,22 @@
 package main
 
+// NOTE: github.com/nokia/docker-registry-client/registry is used only to read the v2/_catalog
+// go-containerregistry is used for all other operations (it doesn't have support for catalog)
+
 import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"syscall"
 
 	"github.com/nokia/docker-registry-client/registry"
 	"golang.org/x/crypto/ssh/terminal"
+
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 const APP_VERSION = "0.1alpha"
@@ -48,57 +56,86 @@ var password *string = flag.String("password", "", "Password for registry (NOTE:
 
 var askPassword *bool = flag.Bool("p", false, "Ask for password")
 
-func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
+func readRepoData_gocontainerregistry(hub *registry.Registry, repositories []string, rawUrl string, username string, password string) *RepoData {
+	parsed, err := url.Parse(rawUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	repoPrefix := fmt.Sprintf("%s", parsed.Host /*, parsed.Port()*/)
+
+	// Also works for JWT
+	auth := &authn.Basic{
+		Username: username,
+		Password: password,
+	}
+
 	repoData := new(RepoData)
 	repoData.images = make(map[*ImageData]bool)
 
 	layersByDigest := make(map[string]*LayerData)
 
 	for _, repo := range repositories {
+		fmt.Printf("Reading data for image: %s\n", repo)
+		ref, err := name.NewRepository(repoPrefix + "/" + repo)
+		if err != nil {
+			log.Default().Printf("Error parsing repo name: %v", err)
+			continue
+		}
+
+		tags, err := remote.List(ref, remote.WithAuth(auth))
+		if err != nil {
+			// FIXME: errors should be included in the report, because the sizes are not accurate anymore
+			log.Printf("Skipping the repo "+repo+" because of error while obtaining tags list: %v\n", err)
+			continue
+		}
+
 		imageData := new(ImageData)
 		imageData.name = repo
 		imageData.tags = make(map[*TagData]bool)
 		repoData.images[imageData] = true
 
-		fmt.Printf("Reading data for image: %s\n", repo)
-		tags, err := hub.Tags(repo)
-		fmt.Printf("Image %s has %d tags\n", repo, len(tags))
+		fmt.Printf("Image %s has %d tags\n", ref.Name(), len(tags))
 
-		if err == nil {
-			for _, tag := range tags {
-				tagData := new(TagData)
-				tagData.name = tag
-				tagData.layers = make(map[*LayerData]bool)
-				imageData.tags[tagData] = true
+		for _, tag := range tags {
+			tagData := new(TagData)
+			tagData.name = tag
+			tagData.layers = make(map[*LayerData]bool)
+			imageData.tags[tagData] = true
 
-				manifest, err := hub.ManifestV2(repo, tag)
-				if err == nil {
-					for _, m := range manifest.Manifest.Layers {
-						layerData, present := layersByDigest[m.Digest.Encoded()]
-						if !present {
-							layerData = new(LayerData)
-							layerData.size = m.Size
-							layerData.used_by_tags = make(map[*TagData]bool)
-							layerData.used_by_images = make(map[*ImageData]bool)
+			tagRef := ref.Tag(tag)
 
-							layersByDigest[m.Digest.Encoded()] = layerData
-						}
-
-						layerData.used_by_tags[tagData] = true
-						layerData.used_by_images[imageData] = true
-						tagData.layers[layerData] = true
-						tagData.size += layerData.size
-					}
-				} else {
-					log.Print(err)
-					// FIXME: errors should be included in the report
-					log.Print("Skipping the tag " + tagData.name + " because of error")
-				}
+			// 3. Get the image for this tag
+			img, err := remote.Image(tagRef, remote.WithAuth(auth))
+			if err != nil {
+				// FIXME: errors should be included in the report, because the sizes are not accurate anymore
+				log.Printf("Skipping the tag "+tagData.name+" because of error while obtaining image data: %v\n", err)
+				continue
 			}
-		} else {
-			log.Print(err)
-			// FIXME: errors should be included in the report
-			log.Print("Skipping the repo " + repo + " because of error")
+
+			// 4. Get the manifest
+			manifest, err := img.Manifest()
+			if err == nil {
+				for _, layer := range manifest.Layers {
+					layerData, present := layersByDigest[layer.Digest.String()]
+					if !present {
+						layerData = new(LayerData)
+						layerData.size = layer.Size
+						layerData.used_by_tags = make(map[*TagData]bool)
+						layerData.used_by_images = make(map[*ImageData]bool)
+
+						layersByDigest[layer.Digest.String()] = layerData
+					}
+
+					layerData.used_by_tags[tagData] = true
+					layerData.used_by_images[imageData] = true
+					tagData.layers[layerData] = true
+					tagData.size += layerData.size
+
+				}
+			} else {
+				// FIXME: errors should be included in the report, because the sizes are not accurate anymore
+				log.Printf("Skipping the tag "+tagData.name+" because of error while obtaining manifest: %s\n", err.Error())
+			}
 		}
 	}
 	return repoData
@@ -204,7 +241,7 @@ func main() {
 		}
 
 		fmt.Println("Found  repositories ", repositories)
-		repoData := readRepoData(hub, repositories)
+		repoData := readRepoData_gocontainerregistry(hub, repositories, url, *username, *password)
 		repoDataPrintReport(repoData)
 	} else {
 		PrintUsage()
