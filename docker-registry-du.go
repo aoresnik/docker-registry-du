@@ -60,9 +60,10 @@ func readRepoData(hub *registry.Registry, repositories []string) *RepoData {
 		imageData.tags = make(map[*TagData]bool)
 		repoData.images[imageData] = true
 
-		fmt.Println("Reading data for image: " + repo)
-
+		fmt.Printf("Reading data for image: %s\n", repo)
 		tags, err := hub.Tags(repo)
+		fmt.Printf("Image %s has %d tags\n", repo, len(tags))
+
 		if err == nil {
 			for _, tag := range tags {
 				tagData := new(TagData)
